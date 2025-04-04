@@ -1,7 +1,19 @@
 [project]
 name = "readysetdone"
 version = "0.1.0"
-description = "Add your description here"
+description = "Terminal-based todo app with TUI and CLI support"
 readme = "README.md"
+authors = [{ name = "David Kristiansen", email = "david@kristiansen.tech" }]
 requires-python = ">=3.13"
-dependencies = []
+license = "MIT"
+dependencies = [
+    "anyio>=4.9.0",
+]
+
+[tool.ruff]
+extend-include = ["*.py"]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+fixable = ["F401", "F841"]
