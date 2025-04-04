@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: MIT
+# Copyright David Kristiansen
+
+# Global shared settings for both client and daemon
+[rsd]
+# The log level controls the verbosity of logs. Options: 'debug', 'info', 'warn', 'error'.
+log_level = "debug"  # Default log level
+
+# Location where log files will be stored. Use environment variables like XDG_STATE_HOME.
+log_file_location = "${XDG_STATE_HOME}/readysetdone"  # Log file location
+
+# Client-specific settings for the normal CLI mode
+[cli]
+# The UI framework used for the CLI client. Currently, it can only be "rich" in the first version.
+ui_mode = "rich"  # CLI client uses the 'rich' UI framework for display
+
+# Whether to display timestamps alongside task information in the CLI.
+show_timestamps = true  # Show timestamps in the CLI output
+
+# Timeout for establishing a connection to the server, in seconds.
+connect_timeout = 10  # Connection timeout
+
+# If the client fails to connect, this is the interval in seconds to retry the connection.
+reconnect_interval = 5  # Retry interval for reconnecting to the server
+
+# Client-specific settings for the TUI mode
+[tui]
+# The UI framework used for the TUI client. Currently, it can only be "textual" in the first version.
+ui_mode = "textual"  # TUI client uses the 'textual' UI framework for display
+
+# Timeout for establishing a connection to the server, in seconds, specific to the TUI mode.
+connect_timeout = 10  # Timeout duration for TUI client connections
+
+# If the TUI client fails to connect, this is the interval in seconds to retry the connection.
+reconnect_interval = 5  # Retry interval for reconnecting for TUI client
+
+# Daemon-specific settings for the background service
+[daemon]
+# The path where task data is stored. Typically stored in XDG_DATA_HOME for platform consistency.
+task_store_path = "${XDG_DATA_HOME}/readysetdone/tasks.json"  # Path for task store
+
+# Path where task descriptions are stored. Uses XDG_DATA_HOME for better cross-platform support.
+description_store_path = "${XDG_DATA_HOME}/readysetdone/descriptions"  # Path for task descriptions
+
+# Interval in seconds for polling the task store for updates.
+# If there are frequent updates, you may want a shorter interval.
+task_polling_interval = 3  # Interval for polling tasks
+
+# Grace period (in seconds) before forcibly shutting down the daemon.
+# This gives the system time to clean up tasks and close resources.
+shutdown_timeout = 5  # Grace period before shutting down the daemon
+

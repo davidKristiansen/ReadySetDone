@@ -6,14 +6,12 @@ Handles file I/O with locking using anyio for thread/process safety.
 """
 
 import anyio
-import asyncio
-from pathlib import Path
 
 
 class LockedFile:
-    def __init__(self, filepath: Path):
+    def __init__(self, filepath: anyio.Path):
         self.filepath = filepath
-        self.lock = asyncio.Lock()
+        self.lock = anyio.Lock()
 
     async def read(self) -> str:
         """Read from the file with locking to ensure safety."""

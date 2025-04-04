@@ -2,51 +2,69 @@
 # Copyright David Kristiansen
 
 """
-Task model definitions used throughout the ReadySetDone API.
+This module defines the basic data structures used in the ReadySetDone application.
+
+The `Task` class represents a task with attributes such as ID, name, completion status,
+due date, and more. The `Id` class represents a unique identifier for each task.
+
+Classes:
+- Task: Represents a task in the application.
+- Id: Represents the unique identifier of a task.
 """
 
-import re
-import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Optional
 from datetime import datetime
-from typing import List, Optional
-
-
-def slugify(title: str) -> str:
-    """Convert task title to a filesystem-friendly slug."""
-    return re.sub(r"[^a-zA-Z0-9]+", "-", title.strip().lower()).strip("-")
+import uuid
 
 
 @dataclass
 class Task:
-    """
-    Represents a single task in ReadySetDone.
-    """
+    """Represents a Task in the ReadySetDone application."""
 
-    id: str
-    task: str
-    done: bool
-    created: datetime
-    completed: Optional[datetime] = None
-    due: Optional[datetime] = None
-    pinned: bool = False
-    children: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+    id: str  # ID of the task
+    task: str  # Task name
+    done: bool = False  # Indicates whether the task is done
+    created: Optional[datetime] = None  # Task creation time
+    completed: Optional[datetime] = None  # Task completion time
+    due: Optional[datetime] = None  # Task due date
+    pinned: bool = False  # Indicates whether the task is pinned
 
-    @staticmethod
-    def new(task: str, due: Optional[datetime] = None, pinned: bool = False) -> "Task":
-        """Helper to construct a new Task with auto-generated ID and timestamp."""
-        return Task(
-            id=str(uuid.uuid4()),
-            task=task,
-            done=False,
-            created=datetime.now(),
-            due=due,
-            pinned=pinned,
+    @classmethod
+    def from_dict(cls, data: dict) -> "Task":
+        """Create a Task object from a dictionary."""
+        return cls(
+            id=data["id"],
+            task=data["task"],
+            done=data["done"],
+            created=datetime.fromisoformat(data["created"]) if data["created"] else None,
+            completed=datetime.fromisoformat(data["completed"]) if data["completed"] else None,
+            due=datetime.fromisoformat(data["due"]) if data["due"] else None,
+            pinned=data["pinned"],
         )
 
-    @property
-    def filename(self) -> str:
-        slug = slugify(self.task)
-        shortid = self.id.split("-")[0]  # or use first 6 chars
-        return f"{self.created:%Y-%m-%d}_{slug}-{shortid}.md"
+    @classmethod
+    def new(cls, task_name: str) -> "Task":
+        """Create a new Task with a generated ID and the provided task name."""
+        return cls(
+            id=str(uuid.uuid4()),  # Generate a new UUID for the task ID
+            task=task_name,
+            created=datetime.now(),  # Set the current time as the creation time
+        )
+
+
+@dataclass
+class Id:
+    """Represents a task ID in the ReadySetDone application."""
+
+    id: str  # Task ID, typically a UUID
+
+    @classmethod
+    def new(cls) -> "Id":
+        """Create a new Id with a generated UUID."""
+        return cls(id=str(uuid.uuid4()))  # Generate a new UUID for the Id
+
+    @classmethod
+    def from_string(cls, id_str: str) -> "Id":
+        """Create an Id object from a string representing the ID."""
+        return cls(id=id_str)
