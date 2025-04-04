@@ -34,3 +34,5 @@ build/
 .vscode/
 .idea/
 
+# Sphinx build artifacts
+/docs/_build/
