@@ -1,10 +1,36 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
 # Virtual environments
-.venv
+.venv/
+.env/
+
+# Bytecode + caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Editor/system junk
+.DS_Store
+*.log
+*.db
+
+# Packaging / builds
+dist/
+build/
+*.egg-info/
+
+# Pre-commit / tox / test artifacts
+.cache/
+.tox/
+.coverage
+.pytest_cache/
+.mypy_cache/
+
+# Release files (top-level only)
+/*.zip
+/*.sh
+/.*ignore
+
+# IDEs and editors
+.vscode/
+.idea/
+
