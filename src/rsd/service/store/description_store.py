@@ -7,6 +7,7 @@ Handles the loading and saving of task descriptions in Markdown format using any
 
 from pathlib import Path
 from typing import Optional
+
 from rsd.fs.locked_file import LockedFile
 
 

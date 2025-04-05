@@ -27,7 +27,9 @@ def deserialize(payload: str) -> Any:
     # Check if the 'task' key is present to identify Task
     if "task" in data:
         created = datetime.fromisoformat(data["created"]) if data["created"] else None
-        completed = datetime.fromisoformat(data["completed"]) if data["completed"] else None
+        completed = (
+            datetime.fromisoformat(data["completed"]) if data["completed"] else None
+        )
         due = datetime.fromisoformat(data["due"]) if data["due"] else None
         return Task(
             id=data["id"],

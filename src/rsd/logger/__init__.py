@@ -15,7 +15,9 @@ from .rich_logger import setup_logger as setup_rich_logger
 LogLevel = Literal["debug", "info", "warn", "error", "critical"]
 
 
-def setup_logger(type: str = "plain", level: LogLevel = "info", color: bool = False) -> None:
+def setup_logger(
+    type: str = "plain", level: LogLevel = "info", color: bool = False
+) -> None:
     """Return the appropriate logger implementation based on configuration."""
     match type.lower():
         case "plain":

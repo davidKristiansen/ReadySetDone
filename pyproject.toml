@@ -37,11 +37,16 @@ tui = ["textual>=0.60", "rich>=13.7"]
 
 [tool.ruff]
 fix = true
-format = true
-select = ["E", "F", "I"]
+# format = true
 extend-include = ["*.py"]
 target-version = "py313"
 line-length = 88
 
 [tool.ruff.lint]
-fixable = ["F401", "F841"]
+fixable = ["F401", "F841" ,"I" , "RUF022", "E501"]
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true

@@ -7,8 +7,10 @@ Handles the loading and saving of task metadata in JSON format using anyio and f
 
 import json
 from typing import List, Optional
+
+from anyio import Path
+
 from rsd.api.types import Task
-from pathlib import Path
 from rsd.fs.locked_file import LockedFile
 
 
@@ -45,10 +47,14 @@ class TaskStore:
         else:
             tasks.append(task)
 
-        await self.locked_file.write(json.dumps([t.__dict__ for t in tasks], default=str, indent=4))
+        await self.locked_file.write(
+            json.dumps([t.__dict__ for t in tasks], default=str, indent=4)
+        )
 
     async def delete(self, task_id: str) -> None:
         """Delete a task by ID."""
         tasks = await self.load_all()
         tasks = [task for task in tasks if task.id != task_id]
-        await self.locked_file.write(json.dumps([t.__dict__ for t in tasks], default=str, indent=4))
+        await self.locked_file.write(
+            json.dumps([t.__dict__ for t in tasks], default=str, indent=4)
+        )

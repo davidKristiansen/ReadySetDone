@@ -4,7 +4,7 @@
 # Global shared settings for both client and daemon
 [rsd]
 # The log level controls the verbosity of logs. Options: 'debug', 'info', 'warn', 'error'.
-log_level = "debug"  # Default log level
+log_level = "info"  # Default log level
 
 # Location where log files will be stored. Use environment variables like XDG_STATE_HOME.
 log_file_location = "${XDG_STATE_HOME}/readysetdone"  # Log file location

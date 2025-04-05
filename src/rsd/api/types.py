@@ -12,10 +12,10 @@ Classes:
 - Id: Represents the unique identifier of a task.
 """
 
-from dataclasses import dataclass
-from typing import Optional
-from datetime import datetime
 import uuid
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
 
 
 @dataclass
@@ -37,8 +37,12 @@ class Task:
             id=data["id"],
             task=data["task"],
             done=data["done"],
-            created=datetime.fromisoformat(data["created"]) if data["created"] else None,
-            completed=datetime.fromisoformat(data["completed"]) if data["completed"] else None,
+            created=datetime.fromisoformat(data["created"])
+            if data["created"]
+            else None,
+            completed=datetime.fromisoformat(data["completed"])
+            if data["completed"]
+            else None,
             due=datetime.fromisoformat(data["due"]) if data["due"] else None,
             pinned=data["pinned"],
         )

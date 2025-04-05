@@ -8,7 +8,7 @@ Formats output using standard Python logging without Rich features.
 
 import logging
 
-from .utils import COLOR_MAP, Color, LEVEL_MAP
+from .utils import COLOR_MAP, LEVEL_MAP, Color
 
 
 class ColorFormatter(logging.Formatter):

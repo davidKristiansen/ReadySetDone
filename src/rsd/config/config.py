@@ -6,11 +6,10 @@ Loads and manages configuration for ReadySetDone.
 
 Supports sections:
 - [rsd]    (shared)
-- [cli]    (CLI client)
-- [tui]    (TUI client)
+- [cli]    (CLI and TUI client)
 - [daemon] (daemon service)
 
-Resolves environment variables and provides structured access via dataclasses.
+Resolves environment variables and provides structured access via flattened fields.
 """
 
 import os
@@ -18,14 +17,21 @@ import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from rsd.config.args import Args, ColorWhen, Mode
+from rsd.config.args import Args
 
+ColorWhen = Literal["auto", "never", "always"]
 
-def default_config_path() -> Path:
-    """Return default config path using XDG_CONFIG_HOME or fallback to ~/.config."""
-    return Path(os.getenv("XDG_CONFIG_HOME", Path.home() / ".config")) / "readysetdone" / "config.toml"
+_RSD_DATA_HOME = (
+    Path(os.getenv("XDG_DATA_HOME") or Path.home() / ".local" / "share")
+    / "readysetdone"
+)
+
+_RSD_STATE_HOME = (
+    Path(os.getenv("XDG_STATE_HOME") or Path.home() / ".local" / "state")
+    / "readysetdone"
+)
 
 
 def _supports_color() -> bool:
@@ -34,14 +40,14 @@ def _supports_color() -> bool:
 
 
 @dataclass
-class RsdConfig:
+class _CommonConfig:
     log_level: str = "info"
-    log_file_location: str = "${XDG_STATE_HOME}/readysetdone"
+    log_file_location: str = str(_RSD_STATE_HOME / "rsd.log")
     color: bool = _supports_color()
 
 
 @dataclass
-class CliConfig:
+class _CliConfig:
     ui_mode: str = "rich"
     show_timestamps: bool = True
     connect_timeout: int = 10
@@ -49,29 +55,15 @@ class CliConfig:
 
 
 @dataclass
-class TuiConfig:
-    ui_mode: str = "textual"
-    connect_timeout: int = 10
-    reconnect_interval: int = 5
-
-
-@dataclass
-class DaemonConfig:
-    task_store_path: str = "${XDG_DATA_HOME}/readysetdone/tasks.json"
-    description_store_path: str = "${XDG_DATA_HOME}/readysetdone/descriptions"
+class _DaemonConfig:
+    task_store_path: str = str(_RSD_DATA_HOME / "tasks.json")
+    description_store_path: str = str(_RSD_DATA_HOME / "descriptions")
     task_polling_interval: int = 3
-    shutdown_timeout: int = 30
+    shutdown_timeout: int = 5
 
 
-@dataclass
 class Config:
-    rsd: RsdConfig
-    cli: CliConfig | None = None
-    tui: TuiConfig | None = None
-    daemon: DaemonConfig | None = None
-    mode: Mode = "cli"
-
-    def __init__(self, path: Path, args: Args, mode: Mode):
+    def __init__(self, path: Path, args: Args, mode: str):
         if not path.exists():
             raise FileNotFoundError(f"Missing config: {path}")
 
@@ -80,35 +72,40 @@ class Config:
 
         expanded = _expand_env_vars(raw)
 
-        rsd = RsdConfig(**expanded.get("rsd", {}))
-        if args.common.verbose:
-            rsd.log_level = "debug"
+        common = _CommonConfig(**expanded.get("rsd", {}))
+        if args.verbose:
+            common.log_level = "debug"
 
-        match args.common.color:
+        match args.color:
             case "always":
-                rsd.color = True
+                common.color = True
             case "never":
-                rsd.color = False
+                common.color = False
             case "auto" | _:
-                rsd.color = _supports_color()
+                common.color = _supports_color()
 
-        self.rsd = rsd
-        self.mode = mode
+        self.mode = "tui" if args.command == "tui" else mode
+        self.log_level = common.log_level
+        self.log_file_location = common.log_file_location
+        self.color = common.color
 
-        if mode == "cli":
-            self.cli = CliConfig(**expanded.get("cli", {}))
-            self.tui = None
-            self.daemon = None
-        elif mode == "tui":
-            self.tui = TuiConfig(**expanded.get("tui", {}))
-            self.cli = None
-            self.daemon = None
-        elif mode == "daemon":
-            self.daemon = DaemonConfig(**expanded.get("daemon", {}))
-            self.cli = None
-            self.tui = None
+        if args.mode in ("cli", "tui"):
+            cli = _CliConfig(**expanded.get("cli", {}))
+            cli.ui_mode = "textual" if args.command == "tui" else "rich"
+            self.ui_mode = cli.ui_mode
+            self.show_timestamps = cli.show_timestamps
+            self.connect_timeout = cli.connect_timeout
+            self.reconnect_interval = cli.reconnect_interval
+
+        elif args.mode == "daemon":
+            daemon = _DaemonConfig(**expanded.get("daemon", {}))
+            self.task_store_path = daemon.task_store_path
+            self.description_store_path = daemon.description_store_path
+            self.task_polling_interval = daemon.task_polling_interval
+            self.shutdown_timeout = daemon.shutdown_timeout
+
         else:
-            raise ValueError(f"Unknown config mode: {mode}")
+            raise ValueError(f"Unknown config mode: {args.mode}")
 
     @property
     def is_cli(self) -> bool:

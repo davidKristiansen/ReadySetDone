@@ -10,9 +10,11 @@ from typing import List, Optional
 from rsd.api.types import Task
 from rsd.service.store.description_store import DescriptionStore
 from rsd.service.store.task_store import TaskStore
+from rsd.service.task_service import TaskService
 
 task_store = TaskStore(filepath="tasks.json")
 description_store = DescriptionStore(folderpath="descriptions")
+task_service = TaskService(task_store)
 
 
 async def list() -> List[Task]:
@@ -27,7 +29,7 @@ async def get(task_id: str) -> Optional[Task]:
 
 async def add(task: Task) -> None:
     """Add a new task to the system."""
-    await task_store.save(task)
+    await task_service.add_task(task)
 
 
 async def update(task: Task) -> None:

@@ -14,4 +14,4 @@ Exposed Classes:
 from .dbus_pubsub import DbusPubsub
 
 # Expose DbusPubSub as PubSub
-PubSub = DbusPubsub
+Pubsub = DbusPubsub

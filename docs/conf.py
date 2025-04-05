@@ -10,7 +10,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_rtd_dark_mode",
     "sphinx.ext.autodoc.typehints",
-    "myst_parser"
+    "myst_parser",
 ]
 source_suffix = [".rst", ".md"]
 templates_path = ["_templates"]
