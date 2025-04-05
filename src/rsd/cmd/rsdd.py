@@ -3,8 +3,6 @@
 # Copyright David Kristiansen
 
 """
-File Path: src/rsd/cmd/rsdd.py
-
 Daemon entrypoint for ReadySetDone (`rsdd`).
 Responsible for receiving, processing, and persisting task events through pub/sub.
 Handles signals to gracefully shutdown.
@@ -12,104 +10,72 @@ Handles signals to gracefully shutdown.
 
 import logging
 import signal
-from datetime import datetime
 
 import anyio
+from anyio import create_task_group
 
-from rsd import api
-from rsd.pubsub import (
-    PubSub,  # Using the PubSub interface exposed in the pubsub layer
-    topics,  # Event types like TASK_ADD, TASK_UPDATE
-)
+from rsd.config.args import Args
+from rsd.config.config import Config
+from rsd.logger import setup_logger
+from rsd.pubsub import PubSub, topics
 
 logger = logging.getLogger(__name__)
-
-# Configure the logger
 logging.basicConfig(level=logging.INFO)
 
-# Create a task pool to manage tasks
-task_pool = []
 
-
-# Async function to handle an event (this will be a task)
-async def handle_event(event_data: str) -> None:
-    """Process the event asynchronously."""
-    logger.info(f"Processing event: {event_data}")
-    # Simulate some async work (e.g., processing the event)
-    await anyio.sleep(1)
-    logger.info(f"Finished processing event: {event_data}")
-
-
-async def task_added_callback(task_data: str) -> None:
-    """Callback for task added event, now handled as a task."""
-    logger.info(f"Task added: {task_data}")
-    # Create an async task to process the event and add it to the task pool
-    task = anyio.create_task(handle_event(task_data))
-    task_pool.append(task)
-
-
-async def task_updated_callback(task_data: str) -> None:
-    """Callback for task updated event, now handled as a task."""
-    logger.info(f"Task updated: {task_data}")
-    task = anyio.create_task(handle_event(task_data))
-    task_pool.append(task)
-
-
-async def task_deleted_callback(task_id_data: str) -> None:
-    """Callback for task deleted event, now handled as a task."""
-    logger.info(f"Task deleted: {task_id_data}")
-    task = anyio.create_task(handle_event(task_id_data))
-    task_pool.append(task)
+async def handle_event(topic: str, payload: str) -> None:
+    """Process events based on topic."""
+    logger.info(f"Processing {topic}: {payload}")
+    await anyio.sleep(1)  # Simulated processing work
+    logger.info(f"Completed processing {topic}: {payload}")
 
 
 async def async_main(pubsub: PubSub) -> None:
-    """Run the daemon and subscribe to task-related events."""
-    # Subscribe to events through PubSub and route them to the appropriate callback
-    pubsub.subscribe(topics.TASK_ADD, task_added_callback)
-    pubsub.subscribe(topics.TASK_UPDATE, task_updated_callback)
-    pubsub.subscribe(topics.TASK_DELETE, task_deleted_callback)
+    """Run the daemon, subscribe to events, and manage tasks."""
+    async with create_task_group() as tg:
 
-    # Keep the daemon running and processing events
-    logger.info("Daemon is running and waiting for events...")
+        async def shutdown_handler():
+            with anyio.open_signal_receiver(signal.SIGINT, signal.SIGTERM) as signals:
+                async for signum in signals:
+                    logger.warning(f"Received signal {signum}, shutting down...")
+                    tg.cancel_scope.cancel()
+                    break
 
-    # Wait for new tasks to arrive and be added to the pool
-    while True:
-        try:
-            # Await any task in the pool
-            if task_pool:
-                # Process the next task asynchronously
-                await anyio.gather(*task_pool)
-                task_pool.clear()  # Clear the task pool after execution
-            else:
-                await anyio.sleep(1)  # No tasks in the pool, wait for new events
-        except anyio.CancelledError:
-            # Gracefully handle the cancellation when a signal is received
-            logger.info("Daemon shutdown initiated.")
-            break  # Exit the loop on cancellation
+        # Start PubSub
+        await pubsub.start()
 
-        except KeyboardInterrupt:
-            logger.info("Gracefully shutting down...")
-            break  # Exit the loop on keyboard interrupt (Ctrl+C)
+        # Subscribe to PubSub topics and add tasks to task group
+        def create_callback(topic: str, payload: str):
+            print(topic, payload)
 
+            async def callback(data: str):
+                await tg.start(handle_event, topic, data)
 
-def handle_shutdown(signum, frame) -> None:
-    """Signal handler to perform cleanup and shutdown."""
-    logger.info(f"Received shutdown signal: {signum}. Cleaning up...")
-    # Perform any cleanup here (e.g., closing resources, saving state)
-    anyio.cancel_all()  # Cancel all pending tasks gracefully
-    logger.info("Shutdown complete.")
+            return callback
+
+        pubsub.subscribe("*", lambda topic, payload: handle_event(topic, payload))
+
+        logger.info("Daemon is running. Waiting for events...")
+
+        # Start shutdown handler in parallel
+        tg.start_soon(shutdown_handler)
+
+        # Keep running until cancelled (by shutdown signal)
+        await anyio.Event().wait()
+
+    # Cleanup after cancellation
+    await pubsub.stop()
+    logger.info("Daemon shutdown complete.")
 
 
 def main() -> None:
-    """Sync wrapper to run the async entrypoint with AnyIO."""
-    pubsub = PubSub()  # Initialize the pub/sub system
+    args = Args()
+    config = Config(path=args.config_path, args=args, mode=args.mode)
 
-    # Register signal handling for graceful shutdown (SIGINT, SIGTERM)
-    anyio.run(lambda: async_main(pubsub))  # Pass pubsub to async_main
+    setup_logger(level=config.rsd.log_level, color=config.rsd.color)
 
-    # Registering signal handlers using anyio's signal module
-    anyio.signal(signal.SIGINT, handle_shutdown)  # For Ctrl+C (SIGINT)
-    anyio.signal(signal.SIGTERM, handle_shutdown)  # For termination (SIGTERM)
+    pubsub = PubSub(mode="daemon")
+    anyio.run(async_main, pubsub)
 
 
 if __name__ == "__main__":

@@ -30,4 +30,3 @@ class DescriptionStore:
         """Save the task description to a Markdown file."""
         description_file = self._get_description_file(task_id)
         await description_file.write(description)
-

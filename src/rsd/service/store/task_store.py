@@ -52,4 +52,3 @@ class TaskStore:
         tasks = await self.load_all()
         tasks = [task for task in tasks if task.id != task_id]
         await self.locked_file.write(json.dumps([t.__dict__ for t in tasks], default=str, indent=4))
-

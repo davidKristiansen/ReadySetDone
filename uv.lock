@@ -280,6 +280,8 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
+    { name = "dbus-next" },
+    { name = "rich" },
 ]
 
 [package.optional-dependencies]
@@ -312,8 +314,10 @@ tui = [
 [package.metadata]
 requires-dist = [
     { name = "anyio", specifier = ">=4.0.0" },
+    { name = "dbus-next", specifier = ">=0.2.3" },
     { name = "dbus-next", marker = "extra == 'dbus'", specifier = ">=0.2.3" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=2.0.0" },
+    { name = "rich", specifier = ">=14.0.0" },
     { name = "rich", marker = "extra == 'rich'", specifier = ">=13.7" },
     { name = "rich", marker = "extra == 'tui'", specifier = ">=13.7" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.3.0" },

@@ -5,7 +5,7 @@
 Public interface for ReadySetDone configuration system.
 """
 
-from .config import load_config, Config
-from .args import parse_args
+from .config import Config
+from .args import Args
 
-__all__ = ["Config", "load_config", "parse_args"]
+__all__ = ["Config", "Args"]

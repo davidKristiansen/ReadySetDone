@@ -1,75 +1,109 @@
-import anyio
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright David Kristiansen
+# ruff: noqa: F821
+
+"""
+Daemon entrypoint for ReadySetDone (`rsdd`).
+Responsible for receiving, processing, and persisting task events through pub/sub.
+Handles signals to gracefully shutdown.
+"""
+
 import logging
-from typing import Callable, Dict, List
-from dbus_next import Message, Signal
+
+import anyio
 from dbus_next.aio import MessageBus
+from dbus_next.service import ServiceInterface, method
+from dbus_next.service import signal as dbus_signal
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+DBUS_INTERFACE = ("com", "readysetdone")
+
+
+class RsdInterface(ServiceInterface):
+    def __init__(self, interface_name, pubsub):
+        super().__init__(interface_name)
+        self.pubsub = pubsub
+        logger.debug(f"Initialized RsdInterface with {interface_name}")
+
+    @method()
+    async def Publish(self, topic: "s", payload: "s") -> "s":
+        logger.info(f"[DBUS] Received publish: {topic} → {payload}")
+        await self.pubsub._handle_incoming_publish(topic, payload)
+        return "published"
+
+    @dbus_signal()
+    def Broadcast(self, topic: "s", payload: "s"):
+        logger.debug(f"[DBUS] Broadcasting: {topic} → {payload}")
+        return (topic, payload)
 
 
 class DbusPubsub:
-    def __init__(self, bus: MessageBus, mode: str):
-        """
-        Initialize the D-Bus Pub/Sub system.
-
-        Args:
-            bus: The MessageBus object used to connect to D-Bus.
-            mode: The mode for the pub/sub system, either 'client' or 'daemon'.
-        """
-        self.bus = bus
+    def __init__(self, mode="client", dbus_interface=DBUS_INTERFACE):
         self.mode = mode
-        self.subscribers: Dict[str, List[Callable]] = {}
+        self.dbus_interface = dbus_interface
+        self.interface_name = ".".join(dbus_interface)
+        self.object_path = "/" + "/".join(dbus_interface)
+        self.bus = None
+        self.interface = None
+        self.subscribers = {}
+        logger.debug(f"DbusPubsub initialized in {self.mode.upper()} mode")
 
-    async def publish(self, topic: str, data: str) -> None:
-        """Publish an event to D-Bus on the specified topic."""
-        if self.mode != "client":
-            raise Exception("Publish operation is only available in client mode.")
+    async def start(self):
+        self.bus = await MessageBus().connect()
+        logger.info("Connected to D-Bus session bus")
 
-        logger.info(f"Publishing to topic: {topic} with data: {data}")
-        signal = Signal("/com/example/ReadySetDone", "com.example.ReadySetDone", topic)
-        signal.append(data)  # Attach data to the signal
-        await self.bus.send(signal)  # Send the signal
+        if self.mode == "daemon":
+            self.interface = RsdInterface(self.interface_name, self)
+            self.bus.export(self.object_path, self.interface)
+            await self.bus.request_name(self.interface_name)
+            logger.info(f"DbusPubsub started in DAEMON mode at {self.object_path} ({self.interface_name})")
+        else:
+            logger.info("DbusPubsub started in CLIENT mode")
 
-    async def subscribe(self, topic: str, callback: Callable) -> None:
-        """Subscribe to a topic to receive events."""
-        if self.mode != "daemon":
-            raise Exception("Subscribe operation is only available in daemon mode.")
+    def subscribe(self, topic, callback):
+        self.subscribers.setdefault(topic, []).append(callback)
+        logger.debug(f"Subscribed to topic: {topic}")
 
-        logger.info(f"Subscribing to topic: {topic}")
-        self.subscribers[topic] = self.subscribers.get(topic, []) + [callback]
+    def publish(self, topic, payload):
+        logger.debug(f"Publishing to topic: {topic} with payload: {payload}")
+        if self.mode == "client":
+            anyio.create_task(self._client_publish(topic, payload))
+        else:
+            if self.interface:
+                self.interface.Broadcast(topic, payload)
+            else:
+                logger.warning("Attempted to broadcast, but interface is not initialized")
 
-        # Create a signal handler for the topic
-        def signal_handler(message: Message):
-            # Extract the data and call the callback
-            data = message.body[0]  # Assuming data is in the first position
-            callback(data)
+    async def _client_publish(self, topic, payload):
+        try:
+            proxy = await self.bus.introspect(self.interface_name, self.object_path)
+            obj = self.bus.get_proxy_object(self.interface_name, self.object_path, proxy)
+            iface = obj.get_interface(self.interface_name)
+            result = await iface.call_publish(topic, payload)
+            logger.info(f"[CLIENT] Publish result from daemon: {result}")
+        except Exception as e:
+            logger.error(f"[CLIENT] Failed to publish message to {topic}: {e}")
 
-        self.bus.on_signal(topic, signal_handler)
+    async def _handle_incoming_publish(self, topic, payload):
+        handlers = self.subscribers.get(topic, []) + self.subscribers.get("*", [])
 
-    async def start(self) -> None:
-        """Start the D-Bus connection."""
-        logger.info(f"Starting D-Bus connection in {self.mode} mode...")
-        await self.bus.connect()
+        if not handlers:
+            logger.warning(f"[DAEMON] No subscribers for topic: {topic}")
 
-    async def stop(self) -> None:
-        """Stop the D-Bus connection."""
-        logger.info("Stopping D-Bus connection...")
-        await self.bus.disconnect()
+        for cb in handlers:
+            try:
+                logger.debug(f"Dispatching to subscriber for topic: {topic}")
+                await cb(topic, payload)
+            except Exception as e:
+                logger.exception(f"Error in subscriber callback for topic {topic}: {e}")
 
-
-class PubSubBuilder:
-    def __init__(self):
-        """Initialize the PubSub builder."""
-        self.bus = MessageBus()  # Initialize D-Bus connection (using dbus-next)
-        self.mode = None
-
-    def set_mode(self, mode: str) -> "PubSubBuilder":
-        """Set the mode for the pub/sub system ('client' or 'daemon')."""
-        self.mode = mode
-        return self
-
-    def build(self) -> DbusPubsub:
-        """Build and return the DbusPubsub instance."""
-        if self.mode not in ["client", "daemon"]:
-            raise ValueError("Invalid mode. Must be 'client' or 'daemon'.")
-        return DbusPubsub(self.bus, self.mode)
+    async def stop(self):
+        if self.bus:
+            logger.info("Disconnecting from D-Bus session bus")
+            self.bus.disconnect()
+            self.bus = None
+        else:
+            logger.debug("Stop called but bus was already None")

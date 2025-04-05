@@ -14,10 +14,13 @@ Resolves environment variables and provides structured access via dataclasses.
 """
 
 import os
+import sys
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from rsd.config.args import Args, ColorWhen, Mode
 
 
 def default_config_path() -> Path:
@@ -25,10 +28,16 @@ def default_config_path() -> Path:
     return Path(os.getenv("XDG_CONFIG_HOME", Path.home() / ".config")) / "readysetdone" / "config.toml"
 
 
+def _supports_color() -> bool:
+    """Return True if the terminal supports color output."""
+    return sys.stdout.isatty() and os.getenv("TERM") not in ("dumb", "")
+
+
 @dataclass
 class RsdConfig:
     log_level: str = "info"
     log_file_location: str = "${XDG_STATE_HOME}/readysetdone"
+    color: bool = _supports_color()
 
 
 @dataclass
@@ -56,10 +65,62 @@ class DaemonConfig:
 
 @dataclass
 class Config:
-    rsd: RsdConfig = field(default_factory=RsdConfig)
-    cli: CliConfig = field(default_factory=CliConfig)
-    tui: TuiConfig = field(default_factory=TuiConfig)
-    daemon: DaemonConfig = field(default_factory=DaemonConfig)
+    rsd: RsdConfig
+    cli: CliConfig | None = None
+    tui: TuiConfig | None = None
+    daemon: DaemonConfig | None = None
+    mode: Mode = "cli"
+
+    def __init__(self, path: Path, args: Args, mode: Mode):
+        if not path.exists():
+            raise FileNotFoundError(f"Missing config: {path}")
+
+        with path.open("rb") as f:
+            raw = tomllib.load(f)
+
+        expanded = _expand_env_vars(raw)
+
+        rsd = RsdConfig(**expanded.get("rsd", {}))
+        if args.common.verbose:
+            rsd.log_level = "debug"
+
+        match args.common.color:
+            case "always":
+                rsd.color = True
+            case "never":
+                rsd.color = False
+            case "auto" | _:
+                rsd.color = _supports_color()
+
+        self.rsd = rsd
+        self.mode = mode
+
+        if mode == "cli":
+            self.cli = CliConfig(**expanded.get("cli", {}))
+            self.tui = None
+            self.daemon = None
+        elif mode == "tui":
+            self.tui = TuiConfig(**expanded.get("tui", {}))
+            self.cli = None
+            self.daemon = None
+        elif mode == "daemon":
+            self.daemon = DaemonConfig(**expanded.get("daemon", {}))
+            self.cli = None
+            self.tui = None
+        else:
+            raise ValueError(f"Unknown config mode: {mode}")
+
+    @property
+    def is_cli(self) -> bool:
+        return self.mode == "cli"
+
+    @property
+    def is_tui(self) -> bool:
+        return self.mode == "tui"
+
+    @property
+    def is_daemon(self) -> bool:
+        return self.mode == "daemon"
 
 
 def _expand_env_vars(obj: Any) -> Any:
@@ -68,21 +129,3 @@ def _expand_env_vars(obj: Any) -> Any:
     if isinstance(obj, dict):
         return {k: _expand_env_vars(v) for k, v in obj.items()}
     return obj
-
-
-def load_config(path: Path | None = None) -> Config:
-    config_path = path or default_config_path()
-    if not config_path.exists():
-        raise FileNotFoundError(f"Missing config: {config_path}")
-
-    with config_path.open("rb") as f:
-        data = tomllib.load(f)
-
-    expanded = _expand_env_vars(data)
-
-    return Config(
-        rsd=RsdConfig(**expanded.get("rsd", {})),
-        cli=CliConfig(**expanded.get("cli", {})),
-        tui=TuiConfig(**expanded.get("tui", {})),
-        daemon=DaemonConfig(**expanded.get("daemon", {})),
-    )

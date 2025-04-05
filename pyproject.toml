@@ -8,6 +8,8 @@ requires-python = ">=3.13"
 license = "MIT"
 dependencies = [
     "anyio>=4.0.0",
+    "dbus-next>=0.2.3",
+    "rich>=14.0.0",
 ]
 
 [tool.uv]
