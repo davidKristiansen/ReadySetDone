@@ -29,7 +29,7 @@ build/
 /*.zip
 /*.sh
 /.*ignore
-/.json
+/*.json
 
 # IDEs and editors
 .vscode/
