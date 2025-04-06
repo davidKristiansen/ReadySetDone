@@ -50,3 +50,8 @@ select = ["E", "F", "I"]
 quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
+
+[dependency-groups]
+dev = [
+    "argcomplete>=3.6.2",
+]

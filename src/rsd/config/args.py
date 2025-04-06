@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from typing import Literal, Optional
 
+import argcomplete
+
 from rsd import __version__
 
 ColorWhen = Literal["auto", "never", "always"]
@@ -143,6 +145,7 @@ def _parse_cli_args(primary_command: str) -> _CliArgs:
             "index", type=int
         )
 
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
     common = _CommonArgs(
         config_path=args.config, verbose=args.verbose, color=args.color
@@ -162,6 +165,7 @@ def _parse_daemon_args() -> _DaemonArgs:
     parser = argparse.ArgumentParser(prog="rsdd")
     _parse_common_args(parser)
     parser.add_argument("--background", action="store_true", help="Run in background")
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
     common = _CommonArgs(
         config_path=args.config, verbose=args.verbose, color=args.color

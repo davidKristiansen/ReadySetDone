@@ -37,3 +37,6 @@ build/
 
 # Sphinx build artifacts
 /docs/_build/
+
+# Arg completions
+completions/
