@@ -17,15 +17,15 @@ from rsd.fs.locked_file import LockedFile
 class TaskStore:
     def __init__(self, filepath: str = "tasks.json"):
         self.filepath = Path(filepath)
-        self.filepath.parent.mkdir(parents=True, exist_ok=True)
         self.locked_file = LockedFile(self.filepath)
 
     async def load_all(self) -> List[Task]:
         """Load all tasks from the JSON file."""
         try:
             tasks_data = await self.locked_file.read()
-            tasks = json.loads(tasks_data)
-            return [Task(**task) for task in tasks]
+            if not tasks_data.strip():  # empty file → treat as empty list
+                return []
+            return [Task(**task) for task in json.loads(tasks_data)]
         except FileNotFoundError:
             return []
 

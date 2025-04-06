@@ -14,6 +14,7 @@ Functions:
 """
 
 import json
+from datetime import datetime
 from typing import Any
 
 from rsd.api.types import Id, Task
@@ -21,19 +22,40 @@ from rsd.api.types import Id, Task
 
 def serialize(obj: Any) -> str:
     """Serialize a Python object to a JSON string."""
+    if obj == "":
+        return ""
+
+    def dt(val):
+        return val.isoformat() if isinstance(val, datetime) else val
+
     if isinstance(obj, Task):
         return json.dumps(
             {
-                "id": obj.id,  # Directly use the ID as a string
+                "id": obj.id,
                 "task": obj.task,
                 "done": obj.done,
-                "created": obj.created.isoformat() if obj.created else None,
-                "completed": obj.completed.isoformat() if obj.completed else None,
-                "due": obj.due.isoformat() if obj.due else None,
+                "created": dt(obj.created),
+                "completed": dt(obj.completed),
+                "due": dt(obj.due),
                 "pinned": obj.pinned,
             }
         )
+    elif isinstance(obj, list) and all(isinstance(t, Task) for t in obj):
+        return json.dumps(
+            [
+                {
+                    "id": t.id,
+                    "task": t.task,
+                    "done": t.done,
+                    "created": dt(t.created),
+                    "completed": dt(t.completed),
+                    "due": dt(t.due),
+                    "pinned": t.pinned,
+                }
+                for t in obj
+            ]
+        )
     elif isinstance(obj, Id):
-        return json.dumps({"id": obj.id})  # Simply return the ID as a JSON string
+        return json.dumps({"id": obj.id})
     else:
         raise TypeError(f"Unsupported type for serialization: {type(obj)}")

@@ -49,6 +49,8 @@ class Args:
         self.command = getattr(parsed, "command", None)
         self.task = getattr(parsed, "task", None)
         self.done = getattr(parsed, "done", False)
+        self.pin = getattr(parsed, "pin", False)
+        self.metadata = getattr(parsed, "metadata", False)
         self.index = getattr(parsed, "index", None)
         self.background = getattr(parsed, "background", False)
 
@@ -71,12 +73,16 @@ class _CliArgs:
         common: _CommonArgs,
         task: Optional[str] = None,
         done: bool = False,
+        pin: bool = False,
+        metadata: bool = False,
         index: Optional[int] = None,
         command: Optional[str] = None,
     ):
         self.common = common
         self.task = task
         self.done = done
+        self.pin = pin
+        self.metadata = metadata
         self.index = index
         self.command = command
 
@@ -119,7 +125,10 @@ def _parse_cli_args(primary_command: str) -> _CliArgs:
     _parse_common_args(parser)
     subparsers = parser.add_subparsers(dest="command", required=False)
 
-    subparsers.add_parser("list", help="List all tasks")
+    list_parser = subparsers.add_parser("list", help="List all tasks")
+    list_parser.add_argument(
+        "-m", "--metadata", action="store_true", help="Show metadata"
+    )
     subparsers.add_parser("tui", help="Launch TUI")
 
     add_parser = subparsers.add_parser("add", help="Add a task")
@@ -127,6 +136,7 @@ def _parse_cli_args(primary_command: str) -> _CliArgs:
     add_parser.add_argument(
         "-d", "--done", action="store_true", help="Mark task as done"
     )
+    add_parser.add_argument("-p", "--pin", action="store_true", help="Pin task")
 
     for cmd in ["done", "toggle", "not-done", "delete", "pin", "unpin", "description"]:
         subparsers.add_parser(cmd, help=f"{cmd.title()} a task").add_argument(
@@ -142,6 +152,8 @@ def _parse_cli_args(primary_command: str) -> _CliArgs:
         command=args.command,
         task=getattr(args, "task", None),
         done=getattr(args, "done", False),
+        pin=getattr(args, "pin", False),
+        metadata=getattr(args, "metadata", False),
         index=getattr(args, "index", None),
     )
 
